@@ -43,34 +43,3 @@ async def delete_subscription(db: AsyncSession, subscription_id: int, user_id: i
     await db.commit()
 
     return result.rowcount > 0
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

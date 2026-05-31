@@ -29,3 +29,7 @@ async def update_subscription(
 @router.delete("/subscription/{subscription_id}")
 async def delete_subscription(subscription_id: int, db: AsyncSession = Depends(get_db), current_user = Depends(get_current_user)):
     return await subscriptions_service.delete_subscription(db=db, subscription_id=subscription_id, user_id=current_user.id)
+
+@router.get("/subscriptions/statistics")
+async def get_subscription_statistics(db: AsyncSession = Depends(get_db), current_user = Depends(get_current_user)):
+    return await subscriptions_service.get_subscriptions_statistics(db=db, user_id=current_user.id)

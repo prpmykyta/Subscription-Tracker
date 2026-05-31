@@ -66,16 +66,29 @@ async def delete_subscription(db: AsyncSession, subscription_id: int, user_id: i
 
     return {"detail": "Subscription deleted successfully"}
 
+async def get_subscriptions_statistics(db: AsyncSession, user_id: int):
+    subscriptions = await subscription_repo.get_user_subscriptions(db, user_id)
 
+    total_monthly = 0
+    total_yearly = 0
+    active_subscriptions = 0
 
+    for subscription in subscriptions:
+        if subscription.is_active  is False:
+            continue
+        if subscription.type == "weekly":
+            total_monthly += subscription.price * 4
+            total_yearly += subscription.price * 52
+        elif subscription.type == "monthly":
+            total_monthly += subscription.price
+            total_yearly += subscription.price * 12
+        elif subscription.type == "yearly":
+            total_monthly += subscription.price / 12
+            total_yearly += subscription.price
+        active_subscriptions += 1
 
-
-
-
-
-
-
-
-
-
-
+    return {
+        "Active Subscriptions": active_subscriptions,
+        "Monthly Cost": round(total_monthly, 2),
+        "Yearly Cost": round(total_yearly, 2)
+    }
