@@ -4,14 +4,10 @@ from app.enums import SubscriptionTypeEnum
 
 
 class CreateSubscriptionRequest(BaseModel):
-    # Название подписки
     name: str = Field(..., max_length=100)
-    # Сумма подписки
     price: float = Field(...)
-    type: SubscriptionTypeEnum = SubscriptionTypeEnum.monthly
-    # Дата начала
+    subscription_type: SubscriptionTypeEnum
     start_date: date
-    # активна ли
     is_active: bool = True
 
     @field_validator('name')
@@ -29,7 +25,7 @@ class CreateSubscriptionRequest(BaseModel):
 class UpdateSubscriptionRequest(BaseModel):
     name: str = Field(None, max_length=100)
     price: float = Field(None)
-    type: SubscriptionTypeEnum = None
+    subscription_type: SubscriptionTypeEnum = None
     start_date: date = None
     is_active: bool = None
 

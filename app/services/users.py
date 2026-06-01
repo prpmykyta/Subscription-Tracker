@@ -1,8 +1,6 @@
 from fastapi import HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
-
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.auth import hash_password, verify_password, create_access_token
 from app.repository import users as users_repo
 from app.schemas import RegisterRequest, TokenResponse
@@ -10,8 +8,8 @@ from app.models.user import User
 
 
 async def register_user(data: RegisterRequest, db: AsyncSession):
-
     existing_user = await users_repo.get_user_by_username(db, data.username)
+
     if existing_user:
         raise HTTPException(status_code=409, detail="Username already exists")
 
@@ -24,18 +22,16 @@ async def register_user(data: RegisterRequest, db: AsyncSession):
 
 
 async def authenticate_user(data: OAuth2PasswordRequestForm, db: AsyncSession) -> TokenResponse:
-    # достать пользователя по имени
     user = await users_repo.get_user_by_username(db, data.username)
-    # проверка на существование пользователя в бд
+
     if not user:
         raise HTTPException(status_code=401, detail="Invalid username or password")
-    # проверить пароль
     if not verify_password(data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
-    # создать токен
+
     token_data = {"sub": user.username}
     token = create_access_token(data=token_data)
-    # вернуть токен в формате TokenResponse
+
     return TokenResponse(access_token=token, token_type="bearer")
 
 

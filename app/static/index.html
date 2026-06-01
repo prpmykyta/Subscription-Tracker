@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SubTrack — Трекер подписок</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Syne', 'sans-serif'],
+            mono: ['DM Mono', 'monospace'],
+          },
+          colors: {
+            surface: { DEFAULT: '#0d0d0f', 1: '#111114', 2: '#18181c', 3: '#1e1e23', 4: '#26262d' },
+            border: '#2a2a32',
+            accent: { DEFAULT: '#6c63ff', dim: '#4c45c7', glow: 'rgba(108,99,255,0.25)' },
+            emerald: { 400: '#34d399', 500: '#10b981' },
+            rose:    { 400: '#fb7185', 500: '#f43f5e' },
+            amber:   { 400: '#fbbf24', 500: '#f59e0b' },
+          },
+          boxShadow: {
+            glow: '0 0 24px rgba(108,99,255,0.18)',
+            card: '0 2px 24px rgba(0,0,0,0.55)',
+          },
+          animation: {
+            'fade-in':  'fadeIn 0.35s ease both',
+            'slide-up': 'slideUp 0.35s cubic-bezier(0.16,1,0.3,1) both',
+            'scale-in': 'scaleIn 0.28s cubic-bezier(0.16,1,0.3,1) both',
+            'pulse-dot':'pulseDot 2s ease-in-out infinite',
+          },
+          keyframes: {
+            fadeIn:   { from:{opacity:0}, to:{opacity:1} },
+            slideUp:  { from:{opacity:0,transform:'translateY(18px)'}, to:{opacity:1,transform:'translateY(0)'} },
+            scaleIn:  { from:{opacity:0,transform:'scale(0.94)'}, to:{opacity:1,transform:'scale(1)'} },
+            pulseDot: { '0%,100%':{opacity:1}, '50%':{opacity:0.4} },
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background-color: #0d0d0f; color: #e8e8f0; font-family: 'Syne', sans-serif; min-height: 100vh; }
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.5;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    }
+    .ambient-glow {
+      position: fixed; top: -200px; left: 50%; transform: translateX(-50%);
+      width: 800px; height: 500px; pointer-events: none; z-index: 0;
+      background: radial-gradient(ellipse at center, rgba(108,99,255,0.08) 0%, transparent 70%);
+    }
+    .glass-card {
+      background: linear-gradient(135deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.01) 100%);
+      border: 1px solid rgba(255,255,255,0.07); backdrop-filter: blur(12px);
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    }
+    .glass-card:hover { border-color: rgba(108,99,255,0.35); box-shadow: 0 4px 32px rgba(108,99,255,0.12); transform: translateY(-2px); }
+    .stat-card {
+      background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.015) 100%);
+      border: 1px solid rgba(255,255,255,0.08); position: relative; overflow: hidden;
+    }
+    .stat-card::after {
+      content: ''; position: absolute; bottom: 0; right: 0; width: 80px; height: 80px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(108,99,255,0.15), transparent 70%);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #6c63ff 0%, #4c45c7 100%);
+      border: 1px solid rgba(108,99,255,0.4); transition: all 0.2s; position: relative; overflow: hidden; cursor: pointer;
+    }
+    .btn-primary::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,255,255,0.12), transparent); opacity: 0; transition: opacity 0.2s; }
+    .btn-primary:hover::before { opacity: 1; }
+    .btn-primary:hover { box-shadow: 0 4px 20px rgba(108,99,255,0.4); transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-ghost {
+      background: transparent; border: 1px solid rgba(255,255,255,0.1);
+      transition: all 0.2s; cursor: pointer; color: #aaa;
+    }
+    .btn-ghost:hover { border-color: rgba(255,255,255,0.25); color: #e8e8f0; }
+    .icon-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04);
+      cursor: pointer; transition: all 0.18s; color: #888;
+    }
+    .icon-btn:hover { background: rgba(108,99,255,0.18); border-color: rgba(108,99,255,0.4); color: #a09dff; }
+    .icon-btn.danger:hover { background: rgba(251,113,133,0.15); border-color: rgba(251,113,133,0.4); color: #fb7185; }
+    .form-input {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+      color: #e8e8f0; padding: 10px 14px; font-family: 'Syne', sans-serif; font-size: 14px;
+      transition: border-color 0.2s, box-shadow 0.2s; width: 100%; outline: none;
+    }
+    .form-input:focus { border-color: rgba(108,99,255,0.6); box-shadow: 0 0 0 3px rgba(108,99,255,0.12); background: rgba(108,99,255,0.06); }
+    .form-input option { background: #18181c; }
+    .form-label { font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #666; margin-bottom: 6px; display: block; }
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(6px); z-index: 50; display: flex; align-items: center; justify-content: center; }
+    .modal-box {
+      background: linear-gradient(160deg, #1a1a20 0%, #15151a 100%);
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 32px;
+      width: 100%; max-width: 440px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(108,99,255,0.1);
+      animation: scaleIn 0.28s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    /* Auth screen */
+    .auth-screen {
+      position: fixed; inset: 0; z-index: 100;
+      background: #0d0d0f;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .auth-box {
+      background: linear-gradient(160deg, #1a1a20 0%, #131318 100%);
+      border: 1px solid rgba(255,255,255,0.09); border-radius: 24px;
+      padding: 40px; width: 100%; max-width: 400px;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(108,99,255,0.08);
+      animation: scaleIn 0.32s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    .tab-btn { padding: 6px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.18s; }
+    .tab-btn.active { background: rgba(108,99,255,0.2); color: #a09dff; }
+    .tab-btn:not(.active) { color: #555; }
+    .tab-btn:not(.active):hover { color: #999; }
+    .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+    .badge-monthly { background: rgba(108,99,255,0.15); color: #a09dff; border: 1px solid rgba(108,99,255,0.25); }
+    .badge-yearly  { background: rgba(52,211,153,0.12); color: #34d399; border: 1px solid rgba(52,211,153,0.25); }
+    .badge-weekly  { background: rgba(251,191,36,0.12); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+    .sub-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; flex-shrink: 0; }
+    .price-tag { font-family: 'DM Mono', monospace; font-weight: 500; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #2a2a32; border-radius: 4px; }
+    .toast { position: fixed; bottom: 24px; right: 24px; background: #18181c; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 20px; font-size: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); z-index: 999; animation: slideUp 0.3s ease both; display: flex; align-items: center; gap: 10px; }
+    .toast.success { border-color: rgba(52,211,153,0.3); }
+    .toast.error   { border-color: rgba(251,113,133,0.3); }
+    @keyframes shimmer { from{background-position:-400px 0} to{background-position:400px 0} }
+    .skeleton { background: linear-gradient(90deg, #1e1e23 25%, #26262d 50%, #1e1e23 75%); background-size: 400px 100%; animation: shimmer 1.4s infinite; border-radius: 12px; }
+    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px; opacity: 0.6; }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #34d399; animation: pulseDot 2s ease-in-out infinite; }
+    .err-msg { font-size: 12px; color: #fb7185; margin-top: 6px; display: none; }
+    .err-msg.show { display: block; }
+  </style>
+</head>
+
+<body class="relative">
+  <div class="ambient-glow"></div>
+
+  <!-- ═══════════════════════ AUTH SCREEN ═══════════════════════ -->
+  <div id="auth-screen" class="auth-screen">
+    <div style="position:absolute;top:-150px;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(ellipse,rgba(108,99,255,0.1) 0%,transparent 70%);pointer-events:none;"></div>
+
+    <div class="auth-box">
+      <!-- Logo -->
+      <div class="flex items-center gap-3 mb-8">
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#6c63ff,#4c45c7);box-shadow:0 0 20px rgba(108,99,255,0.35)">
+          <i data-lucide="layers" class="w-4 h-4 text-white"></i>
+        </div>
+        <span class="text-xl font-bold">Sub<span style="color:#6c63ff">Track</span></span>
+      </div>
+
+      <!-- Tabs -->
+      <div class="flex gap-1 mb-6 p-1 rounded-xl" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);width:fit-content">
+        <button class="tab-btn active" id="tab-login" onclick="switchTab('login')">Войти</button>
+        <button class="tab-btn" id="tab-register" onclick="switchTab('register')">Регистрация</button>
+      </div>
+
+      <!-- Login form -->
+      <div id="form-login">
+        <p class="text-sm text-gray-500 mb-5">Добро пожаловать! Введите данные для входа.</p>
+        <div class="flex flex-col gap-4">
+          <div>
+            <label class="form-label">Логин</label>
+            <input class="form-input" type="text" id="l-email" placeholder="your_username" autocomplete="username" />
+          </div>
+          <div>
+            <label class="form-label">Пароль</label>
+            <input class="form-input" type="password" id="l-password" placeholder="••••••••" autocomplete="current-password" />
+          </div>
+          <div id="login-err" class="err-msg"></div>
+          <button onclick="doLogin()" class="btn-primary w-full py-3 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 mt-1">
+            <span id="login-label">Войти</span>
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Register form -->
+      <div id="form-register" class="hidden">
+        <p class="text-sm text-gray-500 mb-5">Создайте аккаунт, чтобы начать.</p>
+        <div class="flex flex-col gap-4">
+          <div>
+            <label class="form-label">Логин</label>
+            <input class="form-input" type="text" id="r-email" placeholder="your_username" autocomplete="username" />
+          </div>
+          <div>
+            <label class="form-label">Пароль</label>
+            <input class="form-input" type="password" id="r-password" placeholder="••••••••" autocomplete="new-password" />
+          </div>
+          <div id="register-err" class="err-msg"></div>
+          <button onclick="doRegister()" class="btn-primary w-full py-3 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 mt-1">
+            <span id="register-label">Создать аккаунт</span>
+            <i data-lucide="user-plus" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ APP ═══════════════════════ -->
+  <div id="app" class="hidden">
+
+    <!-- HEADER -->
+    <header class="relative z-10 border-b border-border">
+      <div class="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center shadow-glow" style="background:linear-gradient(135deg,#6c63ff,#4c45c7)">
+            <i data-lucide="layers" class="w-4 h-4 text-white"></i>
+          </div>
+          <span class="text-lg font-bold tracking-tight">Sub<span style="color:#6c63ff">Track</span></span>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2 text-xs text-gray-500">
+            <div class="live-dot"></div>
+            <span id="user-email-label" class="hidden sm:inline"></span>
+          </div>
+          <button onclick="openModal()" class="btn-primary flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            Добавить
+          </button>
+          <button onclick="doLogout()" class="btn-ghost flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold" title="Выйти">
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">Выйти</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN -->
+    <main class="relative z-10 max-w-6xl mx-auto px-6 py-10">
+
+      <!-- Stats -->
+      <section class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10 animate-fade-in">
+        <div class="stat-card rounded-2xl p-6">
+          <div class="flex items-center gap-2 mb-3">
+            <i data-lucide="zap" class="w-4 h-4" style="color:#6c63ff"></i>
+            <span class="text-xs text-gray-500 uppercase tracking-widest font-medium">Активные</span>
+          </div>
+          <div id="stat-active" class="text-4xl font-bold tracking-tight">—</div>
+          <div class="text-xs text-gray-600 mt-1 font-mono">subscriptions</div>
+        </div>
+        <div class="stat-card rounded-2xl p-6">
+          <div class="flex items-center gap-2 mb-3">
+            <i data-lucide="calendar" class="w-4 h-4 text-emerald-400"></i>
+            <span class="text-xs text-gray-500 uppercase tracking-widest font-medium">В месяц</span>
+          </div>
+          <div id="stat-monthly" class="text-4xl font-bold tracking-tight price-tag">—</div>
+          <div class="text-xs text-gray-600 mt-1 font-mono">dollars</div>
+        </div>
+        <div class="stat-card rounded-2xl p-6">
+          <div class="flex items-center gap-2 mb-3">
+            <i data-lucide="trending-up" class="w-4 h-4 text-amber-400"></i>
+            <span class="text-xs text-gray-500 uppercase tracking-widest font-medium">В год</span>
+          </div>
+          <div id="stat-yearly" class="text-4xl font-bold tracking-tight price-tag">—</div>
+          <div class="text-xs text-gray-600 mt-1 font-mono">dollars</div>
+        </div>
+      </section>
+
+      <!-- Section title -->
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+          <h2 class="text-lg font-bold">Мои подписки</h2>
+          <span id="subs-count" class="text-xs text-gray-400 border border-border rounded-full px-2.5 py-0.5 font-mono" style="background:rgba(255,255,255,0.04)">0</span>
+        </div>
+        <button onclick="loadAll()" class="icon-btn" title="Обновить">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+
+      <!-- Grid -->
+      <div id="subs-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="skeleton h-44 rounded-2xl"></div>
+        <div class="skeleton h-44 rounded-2xl" style="opacity:.75"></div>
+        <div class="skeleton h-44 rounded-2xl" style="opacity:.5"></div>
+      </div>
+
+      <!-- Empty -->
+      <div id="empty-state" class="hidden empty-state">
+        <i data-lucide="inbox" class="w-12 h-12 text-gray-700 mb-4"></i>
+        <p class="text-gray-500 text-sm font-medium">Нет подписок</p>
+        <p class="text-gray-700 text-xs mt-1">Добавьте первую, нажав кнопку «Добавить»</p>
+      </div>
+
+    </main>
+  </div><!-- /#app -->
+
+  <!-- ═══════════════════════ SUBSCRIPTION MODAL ═══════════════════════ -->
+  <div id="modal" class="modal-backdrop hidden" onclick="handleBackdropClick(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h3 id="modal-title" class="text-lg font-bold">Новая подписка</h3>
+          <p class="text-xs text-gray-600 mt-0.5">Заполните данные</p>
+        </div>
+        <button onclick="closeModal()" class="icon-btn"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <form id="sub-form" onsubmit="handleSubmit(event)" class="flex flex-col gap-4">
+        <input type="hidden" id="edit-id" value="" />
+        <div>
+          <label class="form-label">Название сервиса</label>
+          <input class="form-input" type="text" id="f-name" placeholder="Netflix, Spotify…" required />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="form-label">Цена ($)</label>
+            <input class="form-input" type="number" id="f-price" placeholder="9.99" min="0" step="0.01" required />
+          </div>
+          <div>
+            <label class="form-label">Период</label>
+            <select class="form-input" id="f-type">
+              <option value="weekly">Еженедельно</option>
+              <option value="monthly" selected>Ежемесячно</option>
+              <option value="yearly">Ежегодно</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="form-label">Дата начала</label>
+          <input class="form-input" type="date" id="f-date" required />
+        </div>
+        <!-- is_active toggle -->
+        <div class="flex items-center justify-between px-4 py-3 rounded-xl" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08)">
+          <div class="flex items-center gap-2">
+            <i data-lucide="check-circle-2" class="w-4 h-4" style="color:#34d399"></i>
+            <span class="text-sm font-medium">Подписка активна</span>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer" onclick="toggleSwitch()">
+            <input type="checkbox" id="f-active" class="sr-only" checked />
+            <div id="toggle-track" class="w-10 h-5 rounded-full transition-all" style="background:#6c63ff;position:relative">
+              <div id="toggle-dot" class="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-white shadow transition-all"></div>
+            </div>
+          </label>
+        </div>
+        <div class="flex gap-3 mt-2">
+          <button type="button" onclick="closeModal()"
+            class="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-400 transition-all"
+            style="border:1px solid rgba(255,255,255,0.1)">Отмена</button>
+          <button type="submit"
+            class="btn-primary flex-1 py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2">
+            <span id="submit-label">Добавить</span>
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container"></div>
+
+  <script>
+    // ─── CONFIG ───────────────────────────────────────────────────────────────
+    const API = 'http://127.0.0.1:8000/api/v1';
+    let authToken = localStorage.getItem('subtrack_token') || '';
+    let currentUserEmail = localStorage.getItem('subtrack_email') || '';
+
+    // ─── SERVICE COLORS ───────────────────────────────────────────────────────
+    const SERVICE_COLORS = [
+      ['#6c63ff','#4c45c7'],['#34d399','#059669'],['#fb7185','#e11d48'],
+      ['#fbbf24','#d97706'],['#60a5fa','#2563eb'],['#a78bfa','#7c3aed'],
+      ['#f97316','#c2410c'],['#2dd4bf','#0d9488'],
+    ];
+    function getServiceStyle(name) {
+      const idx = name.charCodeAt(0) % SERVICE_COLORS.length;
+      const [from, to] = SERVICE_COLORS[idx];
+      return { gradient: `linear-gradient(135deg,${from},${to})`, letter: name[0].toUpperCase() };
+    }
+
+    const PERIOD_LABEL = { weekly:'Еженедельно', monthly:'Ежемесячно', yearly:'Ежегодно' };
+    const PERIOD_CLASS = { weekly:'badge-weekly', monthly:'badge-monthly', yearly:'badge-yearly' };
+
+    // ─── FORMAT ───────────────────────────────────────────────────────────────
+    function formatPrice(v) {
+      return '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+    }
+    function formatDate(str) {
+      if (!str) return '—';
+      return new Date(str).toLocaleDateString('ru-RU', { day:'2-digit', month:'short', year:'numeric' });
+    }
+    function daysUntil(str) {
+      if (!str) return null;
+      return Math.ceil((new Date(str) - new Date()) / 86400000);
+    }
+
+    // ─── TOAST ────────────────────────────────────────────────────────────────
+    function showToast(msg, type = 'success') {
+      const tc = document.getElementById('toast-container');
+      const el = document.createElement('div');
+      el.className = `toast ${type}`;
+      const icon = type === 'success'
+        ? `<i data-lucide="check-circle-2" class="w-4 h-4" style="color:#34d399"></i>`
+        : `<i data-lucide="alert-circle" class="w-4 h-4" style="color:#fb7185"></i>`;
+      el.innerHTML = `${icon}<span>${msg}</span>`;
+      tc.appendChild(el);
+      lucide.createIcons({ nodes: [el] });
+      setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity 0.3s'; setTimeout(()=>el.remove(),300); }, 3000);
+    }
+
+    // ─── API ──────────────────────────────────────────────────────────────────
+    async function apiFetch(path, opts = {}) {
+      const headers = { 'Content-Type': 'application/json' };
+      // Always pull token fresh from localStorage so it's never stale
+      const token = localStorage.getItem('subtrack_token') || authToken;
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      Object.assign(headers, opts.headers || {});
+
+      const r = await fetch(API + path, { ...opts, headers });
+
+      if (r.status === 401) { doLogout(); throw new Error('Unauthorized'); }
+
+      if (!r.ok) {
+        let errBody = null;
+        try { errBody = await r.json(); } catch {}
+
+        // Detailed 422 logging — press F12 to inspect
+        if (r.status === 422) {
+          console.error('%c[SubTrack] 422 Validation Error', 'color:#fb7185;font-weight:bold');
+          console.error('URL:', API + path);
+          console.error('Request body:', opts.body ? JSON.parse(opts.body) : '(none)');
+          console.error('FastAPI detail:', errBody);
+        } else {
+          console.error(`[SubTrack] HTTP ${r.status}`, errBody);
+        }
+
+        const msg = errBody?.detail
+          ? (Array.isArray(errBody.detail)
+              ? errBody.detail.map(d => `${d.loc?.join('.')}: ${d.msg}`).join(' | ')
+              : String(errBody.detail))
+          : `HTTP ${r.status}`;
+        throw new Error(msg);
+      }
+
+      if (r.status === 204) return null;
+      return await r.json();
+    }
+
+    // ─── AUTH TABS ────────────────────────────────────────────────────────────
+    function switchTab(tab) {
+      document.getElementById('form-login').classList.toggle('hidden', tab !== 'login');
+      document.getElementById('form-register').classList.toggle('hidden', tab !== 'register');
+      document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+      document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+    }
+
+    // ─── LOGIN ────────────────────────────────────────────────────────────────
+    async function doLogin() {
+      const email    = document.getElementById('l-email').value.trim();
+      const password = document.getElementById('l-password').value;
+      const errEl    = document.getElementById('login-err');
+      const btn      = document.getElementById('login-label');
+      errEl.classList.remove('show');
+      if (!email || !password) { errEl.textContent = 'Заполните все поля'; errEl.classList.add('show'); return; }
+
+      btn.textContent = 'Входим…';
+      try {
+        // FastAPI OAuth2 login expects form-urlencoded
+        const r = await fetch(API + '/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ username: email, password }),
+        });
+        if (!r.ok) {
+          const j = await r.json().catch(()=>({}));
+          throw new Error(j.detail || 'Неверный email или пароль');
+        }
+        const data = await r.json();
+        authToken = data.access_token;
+        currentUserEmail = email;
+        localStorage.setItem('subtrack_token', authToken);
+        localStorage.setItem('subtrack_email', email);
+        enterApp();
+      } catch (e) {
+        errEl.textContent = e.message;
+        errEl.classList.add('show');
+      } finally {
+        btn.textContent = 'Войти';
+      }
+    }
+
+    // ─── REGISTER ─────────────────────────────────────────────────────────────
+    async function doRegister() {
+      const email    = document.getElementById('r-email').value.trim();
+      const password = document.getElementById('r-password').value;
+      const errEl    = document.getElementById('register-err');
+      const btn      = document.getElementById('register-label');
+      errEl.classList.remove('show');
+      if (!email || !password) { errEl.textContent = 'Заполните все поля'; errEl.classList.add('show'); return; }
+      if (password.length < 6)  { errEl.textContent = 'Пароль минимум 6 символов'; errEl.classList.add('show'); return; }
+
+      btn.textContent = 'Создаём…';
+      try {
+        await fetch(API + '/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: email, password }),
+        }).then(async r => {
+          if (!r.ok) { const j = await r.json().catch(()=>({})); throw new Error(j.detail || 'Ошибка регистрации'); }
+        });
+        showToast('Аккаунт создан! Войдите.');
+        // pre-fill login form
+        document.getElementById('l-email').value    = email;
+        document.getElementById('l-password').value = password;
+        switchTab('login');
+      } catch (e) {
+        errEl.textContent = e.message;
+        errEl.classList.add('show');
+      } finally {
+        btn.textContent = 'Создать аккаунт';
+      }
+    }
+
+    // ─── LOGOUT ───────────────────────────────────────────────────────────────
+    function doLogout() {
+      authToken = ''; currentUserEmail = '';
+      localStorage.removeItem('subtrack_token');
+      localStorage.removeItem('subtrack_email');
+      document.getElementById('app').classList.add('hidden');
+      document.getElementById('auth-screen').classList.remove('hidden');
+      document.getElementById('subs-grid').innerHTML =
+        '<div class="skeleton h-44 rounded-2xl"></div><div class="skeleton h-44 rounded-2xl" style="opacity:.75"></div><div class="skeleton h-44 rounded-2xl" style="opacity:.5"></div>';
+    }
+
+    // ─── ENTER APP ────────────────────────────────────────────────────────────
+    function enterApp() {
+      document.getElementById('auth-screen').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      if (currentUserEmail) document.getElementById('user-email-label').textContent = currentUserEmail;
+      document.getElementById('user-email-label').classList.remove('hidden');
+      loadAll();
+    }
+
+    // ─── STATS ────────────────────────────────────────────────────────────────
+    // No frontend math. Backend does all calculations.
+    // GET /api/v1/subscriptions/statistics
+    // → { "Active Subscriptions": N, "Monthly Cost": X.XX, "Yearly Cost": Y.YY }
+    async function loadStats() {
+      try {
+        // cache:'no-store' — bypass browser cache, always hit the real backend
+        const token = localStorage.getItem('subtrack_token') || authToken;
+        const r = await fetch(API + '/subscriptions/statistics', {
+          method: 'GET',
+          cache: 'no-store',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (r.status === 401) { doLogout(); return; }
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+
+        const data = await r.json();
+        console.log('[SubTrack] /statistics raw response:', data);
+
+        document.getElementById('stat-active').textContent  = data['Active Subscriptions'];
+        document.getElementById('stat-monthly').textContent = formatPrice(data['Monthly Cost']);
+        document.getElementById('stat-yearly').textContent  = formatPrice(data['Yearly Cost']);
+      } catch(e) {
+        console.error('[SubTrack] Stats error:', e);
+        ['stat-active','stat-monthly','stat-yearly'].forEach(id => document.getElementById(id).textContent = '—');
+      }
+    }
+
+    // ─── SUBSCRIPTIONS ────────────────────────────────────────────────────────
+    let cachedSubs = [];
+
+    async function loadSubscriptions() {
+      try {
+        const list = await apiFetch('/subscriptions');
+        cachedSubs = list || [];
+        renderGrid(cachedSubs);
+        document.getElementById('subs-count').textContent = cachedSubs.length;
+      } catch {
+        document.getElementById('subs-grid').innerHTML = '';
+        document.getElementById('empty-state').classList.remove('hidden');
+      }
+    }
+
+    function renderGrid(list) {
+      const grid  = document.getElementById('subs-grid');
+      const empty = document.getElementById('empty-state');
+      if (!list.length) { grid.innerHTML = ''; empty.classList.remove('hidden'); return; }
+      empty.classList.add('hidden');
+      grid.innerHTML = list.map((s, i) => buildCard(s, i)).join('');
+      lucide.createIcons({ nodes: [...grid.querySelectorAll('[data-lucide]')] });
+    }
+
+    function buildCard(s, i) {
+      const { gradient, letter } = getServiceStyle(s.name);
+      const days = daysUntil(s.next_payment_date);
+      const daysLabel = days != null ? (days === 0 ? 'today' : days < 0 ? 'overdue' : `in ${days}d`) : '—';
+      const daysColor = days != null && days <= 3 ? 'color:#fb7185' : 'color:#555';
+      return `
+      <div class="glass-card rounded-2xl p-5 flex flex-col gap-4 animate-slide-up" style="animation-delay:${i*50}ms">
+        <div class="flex items-start justify-between">
+          <div class="flex items-center gap-3">
+            <div class="sub-icon" style="background:${gradient}">${letter}</div>
+            <div>
+              <div class="font-semibold text-sm leading-tight">${escHtml(s.name)}</div>
+              <span class="badge ${PERIOD_CLASS[s.type]||'badge-monthly'} mt-1">${PERIOD_LABEL[s.type]||s.type}</span>
+            </div>
+          </div>
+          <div class="flex gap-1.5">
+            <button class="icon-btn" onclick="openEditModal(${s.id})" title="Редактировать">
+              <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+            </button>
+            <button class="icon-btn danger" onclick="deleteSub(${s.id})" title="Удалить">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+        <div class="border-t pt-4 flex items-end justify-between" style="border-color:#2a2a32">
+          <div>
+            <div class="price-tag text-3xl font-bold tracking-tight">${formatPrice(s.price)}</div>
+            <div class="flex items-center gap-1.5 mt-1.5">
+              <i data-lucide="clock-3" class="w-3 h-3" style="${daysColor}"></i>
+              <span class="text-xs" style="${daysColor}">${daysLabel}</span>
+              <span class="text-xs" style="color:#444">· ${formatDate(s.next_payment_date)}</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <div class="w-1.5 h-1.5 rounded-full" style="background:${s.is_active?'#34d399':'#555'}"></div>
+            <span class="text-xs" style="color:${s.is_active?'#34d399':'#666'}">${s.is_active?'Active':'Inactive'}</span>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ─── CREATE / UPDATE ──────────────────────────────────────────────────────
+    async function handleSubmit(e) {
+      e.preventDefault();
+      const id = document.getElementById('edit-id').value;
+
+      // ── Strict type coercion — FastAPI is unforgiving ──────────────────────
+      const rawName     = document.getElementById('f-name').value.trim();
+      const rawPrice    = document.getElementById('f-price').value;
+      const rawType     = document.getElementById('f-type').value;   // 'weekly'|'monthly'|'yearly' — values in HTML, never Russian
+      const rawDate     = document.getElementById('f-date').value;   // 'YYYY-MM-DD'
+      const rawActive   = document.getElementById('f-active').checked; // boolean from DOM checkbox
+
+      // Validate locally before hitting the server
+      if (!rawName)                  { showToast('Укажите название', 'error'); return; }
+      if (!['weekly','monthly','yearly'].includes(rawType)) { showToast('Неверный тип периода', 'error'); return; }
+      if (!rawDate)                  { showToast('Укажите дату начала', 'error'); return; }
+      const priceFloat = parseFloat(rawPrice);
+      if (isNaN(priceFloat) || priceFloat < 0) { showToast('Неверная цена', 'error'); return; }
+
+      // ── Only fields the backend schema allows — no id/user_id in body ─────
+      const body = {
+        name:       rawName,
+        price:      priceFloat,          // strictly float
+        subscription_type:       rawType,             // strictly one of the enum strings
+        start_date: rawDate,             // 'YYYY-MM-DD' string
+        is_active:  Boolean(rawActive),  // strictly boolean
+      };
+
+      console.log('[SubTrack] Sending', id ? 'PATCH' : 'POST', body);
+
+      const btn = document.querySelector('#sub-form button[type=submit]');
+      if (btn) btn.disabled = true;
+      try {
+        if (id) {
+          // ID only in URL — never inside the request body
+          await apiFetch(`/subscription/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+          showToast('Подписка обновлена');
+        } else {
+          await apiFetch('/create_subscription', { method: 'POST', body: JSON.stringify(body) });
+          showToast('Подписка добавлена');
+        }
+        closeModal();
+        loadAll();
+      } catch(err) {
+        showToast('Ошибка: ' + err.message, 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function deleteSub(id) {
+      if (!confirm('Удалить подписку?')) return;
+      try {
+        await apiFetch(`/subscription/${id}`, { method: 'DELETE' });
+        showToast('Подписка удалена');
+        loadAll();
+      } catch(err) {
+        showToast('Ошибка: ' + err.message, 'error');
+      }
+    }
+
+    // ─── MODAL ────────────────────────────────────────────────────────────────
+    function openModal() {
+      document.getElementById('modal-title').textContent = 'Новая подписка';
+      document.getElementById('submit-label').textContent = 'Добавить';
+      document.getElementById('edit-id').value = '';
+      document.getElementById('sub-form').reset();
+      document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+      setToggle(true); // default: active
+      document.getElementById('modal').classList.remove('hidden');
+    }
+
+    async function openEditModal(id) {
+      let sub = cachedSubs.find(s => s.id === id);
+      if (!sub) {
+        try { sub = (await apiFetch('/subscriptions')).find(s => s.id === id); } catch {}
+      }
+      if (!sub) { showToast('Не удалось загрузить данные', 'error'); return; }
+      document.getElementById('modal-title').textContent = 'Редактировать';
+      document.getElementById('submit-label').textContent = 'Сохранить';
+      document.getElementById('edit-id').value = id;
+      document.getElementById('f-name').value  = sub.name;
+      document.getElementById('f-price').value = sub.price;
+      document.getElementById('f-type').value  = sub.subscription_type;
+      document.getElementById('f-date').value  = sub.start_date;
+      setToggle(sub.is_active !== false); // populate toggle
+      document.getElementById('modal').classList.remove('hidden');
+    }
+
+    // ─── TOGGLE HELPER ───────────────────────────────────────────────────────
+    function setToggle(on) {
+      const cb    = document.getElementById('f-active');
+      const track = document.getElementById('toggle-track');
+      const dot   = document.getElementById('toggle-dot');
+      cb.checked = on;
+      if (on) {
+        track.style.background = '#6c63ff';
+        dot.style.right = '2px'; dot.style.left = 'auto';
+      } else {
+        track.style.background = 'rgba(255,255,255,0.12)';
+        dot.style.left = '2px'; dot.style.right = 'auto';
+      }
+    }
+    function toggleSwitch() {
+      const cb = document.getElementById('f-active');
+      setToggle(!cb.checked);
+    }
+
+    function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+    function handleBackdropClick(e) { if (e.target === document.getElementById('modal')) closeModal(); }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+    // ─── LOAD ALL ─────────────────────────────────────────────────────────────
+    async function loadAll() { await Promise.all([loadStats(), loadSubscriptions()]); }
+
+    // ─── INIT ─────────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      // Enter input on login/register via Enter key
+      document.getElementById('l-password').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+      document.getElementById('r-password').addEventListener('keydown', e => { if(e.key==='Enter') doRegister(); });
+      // Auto-login if token saved
+      if (authToken) {
+        enterApp();
+      }
+    });
+  </script>
+</body>
+</html>
