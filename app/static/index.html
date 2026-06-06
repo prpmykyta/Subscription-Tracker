@@ -368,8 +368,8 @@
     // ─── CONFIG ───────────────────────────────────────────────────────────────
     // Автоматическое определение адреса Бэкенда
     const API = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost'
-      ? 'http://127.0.0.1:8000'
-      : 'https://subscription-tracker-2vzo.onrender.com';
+      ? 'http://127.0.0.1:8000/api/v1'
+      : 'https://subscription-tracker-2vzo.onrender.com/api/v1';
     let authToken = localStorage.getItem('subtrack_token') || '';
     let currentUserEmail = localStorage.getItem('subtrack_email') || '';
 
