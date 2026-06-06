@@ -366,7 +366,10 @@
 
   <script>
     // ─── CONFIG ───────────────────────────────────────────────────────────────
-    const API = 'http://127.0.0.1:8000/api/v1';
+    // Автоматическое определение адреса Бэкенда
+    const API = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost'
+      ? 'http://127.0.0.1:8000'
+      : 'https://subscription-tracker-2vzo.onrender.com';
     let authToken = localStorage.getItem('subtrack_token') || '';
     let currentUserEmail = localStorage.getItem('subtrack_email') || '';
 
@@ -729,7 +732,7 @@
       document.getElementById('edit-id').value = id;
       document.getElementById('f-name').value  = sub.name;
       document.getElementById('f-price').value = sub.price;
-      document.getElementById('f-type').value  = sub.subscription_type;
+      document.getElementById('f-type').value  = sub.subscription_аtype;
       document.getElementById('f-date').value  = sub.start_date;
       setToggle(sub.is_active !== false); // populate toggle
       document.getElementById('modal').classList.remove('hidden');
